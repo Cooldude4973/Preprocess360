@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CSV Plotter</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 50px;
+            text-align: center;
+        }
+
+        h1 {
+            color: #333;
+        }
+
+        #uploadForm {
+            margin-bottom: 20px;
+        }
+
+        button {
+            margin: 10px;
+        }
+
+        #plotImage {
+            max-width: 100%;
+            margin-top: 20px;
+            display: none;
+        }
+
+        table.data {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        table.data,
+        th,
+        td {
+            border: 1px solid black;
+        }
+
+        th,
+        td {
+            padding: 10px;
+            text-align: left;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Upload a CSV File to Plot Data</h1>
+    <form id="uploadForm" enctype="multipart/form-data">
+        <input type="file" id="fileInput" name="file" accept=".csv">
+        <br><br>
+        <button type="button" onclick="analyzeFile()">Analyze</button><br>
+        <button type="button" onclick="checkNullValues()">Null check</button>
+        <button type="button" onclick="uploadFile()">Upload and Plot</button>
+        <button type="button" onclick="showChecked()">Show Checked</button>
+        <button type="button" onclick="showUniqueVals()">Show Unique</button>
+        <button type="button" onclick="removeDuplicates()">Remove Duplicates</button>
+        <button type="button" onclick="downloadFile()">Download</button>
+        <br>
+        <input type="text" name="missing" id="missingId">
+        <label for="">Missing value</label>
+        <button type="button" onclick="findMissing()">Find Missing</button><br>
+        <h3>Handling Missing Values (For checked columns)</h3>
+        <button type="button" onclick="removeMissing()">Remove Missing</button>
+        <button type="button">Replace With Mean</button>
+        <button type="button">Replace With Mode</button>
+        <button type="button">Replace With Median</button>
+        <!-- <input type="checkbox" id="option1" name="options" value="Option 1">
+        <label for="option1">Option 1</label><br> -->
+    </form>
+    <div id="arrayOutput"></div>
+    <div class="nullvalue"></div>
+    <div id="tableContainer"></div>
+    <img id="plotImage" alt="Plot will be displayed here">
+    <div class="displaychecked"></div>
+    <div class="displayunique"></div>
+    <div class="displaymissingcount"></div>
+    <!-- <button id="display-btn" class="btn btn-primary">Display DataFrame</button> -->
+    <form action="/displayHead" method="post">
+        <button type="submit">Show DataFrame Head</button>
+    </form>
+    <button id="hide-button" onclick="hideDataFrame()">Hide DataFrame Head</button>
+    {% if tables %}<div id="dataframe"><h2>DataFrame:</h2>{{ tables | safe}}</div>{% endif %}
+    <script>
+        function uploadFile() {
+            const fileInput = document.getElementById('fileInput');
+            const plotImage = document.getElementById('plotImage');
+
+            if (fileInput.files.length === 0) {
+                alert("Please select a file.");
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+
+            fetch('/upload', {
+                method: 'POST',
+                body: formData,
+            })
+                .then(response => response.blob())
+                .then(blob => {
+                    const imgURL = URL.createObjectURL(blob);
+                    plotImage.src = imgURL;
+                    plotImage.style.display = 'block';
+                })
+                .catch(error => {
+                    console.error('Error uploading file:', error);
+                    alert('An error occurred while uploading the file.');
+                });
+        }
+        function analyzeFile() {
+            const fileInput = document.getElementById('fileInput');
+
+            if (fileInput.files.length === 0) {
+                alert("Please select a file.");
+                return;
+            }
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+
+            fetch('/analyze', {
+                method: 'POST',
+                body: formData,
+            })
+                .then(response => response.json())  // Parse the JSON response
+                .then(data => {
+                    // console.log(data);
+                    const arrayDiv = document.getElementById("arrayOutput");
+                    arrayDiv.innerHTML = '';
+                    data.forEach(element => {
+                        const p = document.createElement('input');
+                        p.type = "checkbox"
+                        p.name = "options";
+                        p.value = element;
+                        const label = document.createElement('label');
+                        label.textContent = element;
+                        const breaker = document.createElement('br');
+                        arrayDiv.appendChild(p);
+                        arrayDiv.appendChild(label);
+                        arrayDiv.appendChild(breaker);
+                    });
+                })
+        }
+        function checkNullValues() {
+
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+            fetch('/nullcheck', {
+                method: 'POST',
+                body: formData,
+            })
+                .then(response => response.json())
+                .then(data => {
+                    // document.getElementById('tableContainer').innerHTML = data.table;
+                    const nullDiv = document.getElementsByClassName("nullvalue")[0];
+                    const previousp = document.getElementsByClassName("nullvalclass")[0];
+                    if (previousp) {
+                        nullDiv.removeChild(previousp);
+                    }
+                    // nullDiv.removeChild();
+                    console.log(data)
+                    console.log(nullDiv.innerText);
+                    const p = document.createElement('p');
+                    p.className = "nullvalclass"
+                    p.innerHTML = '';
+                    p.innerText = data;
+                    nullDiv.appendChild(p);
+                })
+
+        }
+        function showChecked() {
+            const checkBoxes = document.getElementsByName('options');
+            const displayChecked = document.getElementsByClassName('displaychecked')[0];
+            displayChecked.innerHTML = " ";
+            checkBoxes.forEach(checkBox => {
+                if (checkBox.checked) {
+                    const p = document.createElement('p');
+                    p.innerText = checkBox.value;
+                    displayChecked.appendChild(p);
+                    console.log(checkBox.value + ' is checked');
+                }
+            });
+        }
+        function showUniqueVals() {
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+            const uniqueDiv = document.getElementsByClassName("displayunique")[0];
+            uniqueDiv.innerHTML = " ";
+
+            fetch('/unique', {
+                method: 'POST',
+                body: formData,
+            })
+                .then(response => response.json())
+                .then(data => {
+                    console.log(data.headers);
+                    console.log(data.unique);
+                    const headers = data.headers;
+                    const unique = data.unique;
+                    for (let index = 0; index < headers.length; index++) {
+                        // const element = headers[index];
+                        const newp = document.createElement('p');
+                        newp.innerText = data.headers[index] + " : [" + data.unique[index] + "]";
+                        uniqueDiv.appendChild(newp);
+                    }
+                })
+
+        }
+
+
+        function removeDuplicates() {
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+
+            fetch('/removeduplicates', {
+                method: 'POST',
+                body: formData,
+            })
+                .then(response => response.json())
+                .then(data => {
+                    const duplicateCount = data.duplicate_count;
+                    // console.log(data);
+                    console.log(data.duplicate_count);
+                    const message = duplicateCount + " duplicates are removed from the dataset";
+                    // console.log(data.duplicate_count);
+                    alert(message);
+                })
+                .catch(error => {
+                    console.log(error);
+                })
+        }
+
+        function findMissing() {
+            const missingInput = document.getElementById("missingId").value;
+            const missingDiv = document.getElementsByClassName("displaymissingcount")[0];
+            missingDiv.innerHTML = " ";
+            // console.log(missingInput);
+            // console.log(missingInput.type);
+            const formData = new FormData();
+            formData.append('mval', missingInput);
+            formData.append('file', fileInput.files[0]);
+            fetch('/missing', {
+                method: 'POST',
+                body: formData,
+            })
+                .then(response => response.json())
+                .then(data => {
+                    console.log(data);
+                    const newp = document.createElement('p');
+                    if (data == 0) {
+
+                    }
+                    else {
+                        newp.innerText = missingInput + " count in the dataset is : " + data;
+                        missingDiv.appendChild(newp);
+
+                    }
+                })
+        }
+
+
+        function removeMissing() {
+            const checkBoxes = document.getElementsByName('options');
+            const missingInput = document.getElementById("missingId").value;
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+            var selectedColumns = [];
+            checkBoxes.forEach(checkBox => {
+                if (checkBox.checked) {
+                    selectedColumns.push(checkBox.value);
+                }
+            });
+            // console.log(selectedColumns);
+            formData.append('selectedColumns', selectedColumns);
+            formData.append('missingVal', missingInput);
+            fetch('/removemissing', {
+                method: 'POST',
+                body: formData,
+            })
+
+        }
+
+        function downloadFile() {
+            console.log('donwloading...');
+            fetch('/download', {
+                method: 'GET',
+            })
+                .then(response => response.blob())  // Convert the response to a Blob
+                .then(blob => {
+                    // Create a link element, use it to trigger the download, then remove it
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.style.display = 'none';
+                    a.href = url;
+                    a.download = 'data.csv';  // The file name to be downloaded
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+                })
+        }
+        // function displayHead() {
+        //     const tableDiv = document.getElementsByClassName('table-responsive')[0];
+        //     fetch('/displayHead', {
+        //         method: 'GET',
+        //     })
+        //         .then(response =>)
+        // }
+        function hideDataFrame() {
+            var dataframeDiv = document.getElementById("dataframe");
+            if (dataframeDiv) {
+                // dataframeDiv.style.display = "none";
+                dataframeDiv.innerHTML = " ";
+            }
+        }
+
+
+    </script>
+</body>
+
+</html>
