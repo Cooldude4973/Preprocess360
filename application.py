@@ -229,6 +229,26 @@ def displayHead():
     return render_template('index.html', tables=[sanitized_html])
 
 
+@app.route('/scatterplot' , methods = ['POST'])
+def displayHistogram():
+    global df
+    x = request.form.get('checkedX')
+    y = request.form.get('checkedY')
+    print(x)
+    print(y)
+    plt.figure()
+    plt.scatter(x, y, data=df , color='red', marker='o', s=100, alpha=0.5)
+    plt.title('Customized Scatter Plot')
+    plt.xlabel(x)
+    plt.ylabel(y)
+    plt.grid(True)  # Optional: Adds a grid to the plot
+    img = io.BytesIO()
+    plt.savefig(img, format='png')
+    img.seek(0)
+    
+    return send_file(img, mimetype='image/png')
+
+
 
 
 

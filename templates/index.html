@@ -57,6 +57,7 @@
         <button type="button" onclick="analyzeFile()">Analyze</button><br>
         <button type="button" onclick="checkNullValues()">Null check</button>
         <button type="button" onclick="uploadFile()">Upload and Plot</button>
+        <button type="button" onclick="displayScatter()">Scatter Plot</button>
         <button type="button" onclick="showChecked()">Show Checked</button>
         <button type="button" onclick="showUniqueVals()">Show Unique</button>
         <button type="button" onclick="removeDuplicates()">Remove Duplicates</button>
@@ -77,6 +78,7 @@
     <div class="nullvalue"></div>
     <div id="tableContainer"></div>
     <img id="plotImage" alt="Plot will be displayed here">
+    <img id="plotImage2" alt="Plot will be displayed here">
     <div class="displaychecked"></div>
     <div class="displayunique"></div>
     <div class="displaymissingcount"></div>
@@ -87,6 +89,36 @@
     <button id="hide-button" onclick="hideDataFrame()">Hide DataFrame Head</button>
     {% if tables %}<div id="dataframe"><h2>DataFrame:</h2>{{ tables | safe}}</div>{% endif %}
     <script>
+        function displayScatter() {
+            const plotImage = document.getElementById('plotImage2');
+            const checkBoxes = document.getElementsByName('options');
+            checked = [];
+            checkBoxes.forEach(checkBox => {
+                if (checkBox.checked) {
+                    checked.push(checkBox.value);
+                    console.log(checkBox.value + ' is checked');
+                }
+            });
+
+            const formData = new FormData();
+            formData.append('checkedX' , checked[0]);
+            formData.append('checkedY' , checked[1]);
+
+            fetch('/scatterplot', {
+                method: 'POST',
+                body: formData,
+            })
+                .then(response => response.blob())
+                .then(blob => {
+                    const imgURL = URL.createObjectURL(blob);
+                    plotImage.src = imgURL;
+                    plotImage.style.display = 'block';
+                })
+                .catch(error => {
+                    console.error('Error uploading file:', error);
+                    alert('An error occurred while uploading the file.');
+                });
+        }
         function uploadFile() {
             const fileInput = document.getElementById('fileInput');
             const plotImage = document.getElementById('plotImage');
